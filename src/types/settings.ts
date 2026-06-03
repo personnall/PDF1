@@ -9,11 +9,24 @@ export interface Margins {
   right: number;
 }
 
+export interface Watermark {
+  text: string;
+  enabled: boolean;
+  opacity: number;
+  rotation: number;
+  fontSize: number;
+  color: string;
+}
+
 export interface PageSettings {
   pageSize: PageSize;
   orientation: Orientation;
   margins: Margins;
   unit: Unit;
+  backgroundColor: string;
+  borderColor: string;
+  borderWidth: number;
+  watermark: Watermark;
 }
 
 export const UNIT_CONVERSION = {
@@ -31,5 +44,16 @@ export const DEFAULT_SETTINGS: PageSettings = {
     left: 20,
     right: 20
   },
-  unit: 'mm'
+  unit: 'mm',
+  backgroundColor: '#FFFFFF',
+  borderColor: '#FFFFFF',
+  borderWidth: 0,
+  watermark: {
+    text: 'DRAFT',
+    enabled: false,
+    opacity: 0.1,
+    rotation: 45,
+    fontSize: 60,
+    color: '#000000'
+  }
 };

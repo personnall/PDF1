@@ -1,6 +1,6 @@
 import React from 'react';
 import type { TextStyling } from '../types/styling';
-import { Type, AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold } from 'lucide-react';
+import { Type, AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold, Columns } from 'lucide-react';
 
 interface StylingPanelProps {
   styling: TextStyling;
@@ -32,6 +32,27 @@ const StylingPanel: React.FC<StylingPanelProps> = ({ styling, onChange }) => {
             <option value="Times-Roman">Times New Roman (Serif)</option>
             <option value="Courier">Courier (Mono)</option>
           </select>
+        </div>
+
+        {/* Layout: Columns */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Columns className="w-3 h-3 text-gray-400" />
+            <label className="block text-[10px] text-gray-400 uppercase">Columns</label>
+          </div>
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+            {[1, 2, 3].map((num) => (
+              <button
+                key={num}
+                onClick={() => update('columns', num)}
+                className={`flex-1 py-1 rounded text-xs transition-all ${
+                  styling.columns === num ? 'bg-white shadow-sm text-blue-600 font-bold' : 'text-gray-400'
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Font Size & Weight */}
@@ -105,16 +126,16 @@ const StylingPanel: React.FC<StylingPanelProps> = ({ styling, onChange }) => {
               <input type="number" step="0.1" value={styling.lineHeight} onChange={(e) => update('lineHeight', Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" />
            </div>
            <div>
-              <label className="block text-[10px] text-gray-400 uppercase mb-1">Letter Spacing</label>
-              <input type="number" step="0.1" value={styling.letterSpacing} onChange={(e) => update('letterSpacing', Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" />
+              <label className="block text-[10px] text-gray-400 uppercase mb-1">Column Gap</label>
+              <input type="number" value={styling.columnGap} onChange={(e) => update('columnGap', Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" />
            </div>
            <div>
               <label className="block text-[10px] text-gray-400 uppercase mb-1">Para Spacing</label>
               <input type="number" value={styling.paragraphSpacing} onChange={(e) => update('paragraphSpacing', Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" />
            </div>
            <div>
-              <label className="block text-[10px] text-gray-400 uppercase mb-1">First Line Indent</label>
-              <input type="number" value={styling.firstLineIndent} onChange={(e) => update('firstLineIndent', Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" />
+              <label className="block text-[10px] text-gray-400 uppercase mb-1">Section Spacing</label>
+              <input type="number" value={styling.sectionSpacing} onChange={(e) => update('sectionSpacing', Number(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" />
            </div>
         </div>
       </div>

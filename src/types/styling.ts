@@ -9,6 +9,8 @@ export interface TextStyling {
   paragraphSpacing: number;
   firstLineIndent: number;
   sectionSpacing: number;
+  columns: 1 | 2 | 3;
+  columnGap: number;
 }
 
 export const DEFAULT_STYLING: TextStyling = {
@@ -21,5 +23,7 @@ export const DEFAULT_STYLING: TextStyling = {
   textColor: '#333333',
   paragraphSpacing: 10,
   firstLineIndent: 0,
-  sectionSpacing: 20
+  sectionSpacing: 20,
+  columns: 1,
+  columnGap: 20
 };
