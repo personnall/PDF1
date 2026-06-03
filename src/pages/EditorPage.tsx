@@ -12,12 +12,22 @@ import {
   RotateCw,
   FileUp,
   FileDown,
-  Info
+  Info,
+  Settings as SettingsIcon,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Moon,
+  Sun,
+  Minimize
 } from 'lucide-react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import { PDFDocument } from '../components/PDFDocument';
+import SettingsPanel from '../components/SettingsPanel';
+import type { PageSettings } from '../types/settings';
+import { DEFAULT_SETTINGS } from '../types/settings';
 
-const STORAGE_KEY = 'pdf-builder-content';
+const STORAGE_KEY = 'pdf-builder';
 
 const EditorPage: React.FC = () => {
   // State
@@ -29,8 +39,17 @@ const EditorPage: React.FC = () => {
     const saved = localStorage.getItem(`${STORAGE_KEY}-content`);
     return saved || '';
   });
+  const [settings, setSettings] = useState<PageSettings>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}-settings`);
+    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+  });
+
   const [view, setView] = useState<'split' | 'edit' | 'preview'>('split');
+  const [showSettings, setShowSettings] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [isPreviewDark, setIsPreviewDark] = useState(false);
+  const [fitMode, setFitMode] = useState<'none' | 'width' | 'page'>('none');
 
   // Undo/Redo State
   const [history, setHistory] = useState<string[]>([]);
@@ -39,6 +58,7 @@ const EditorPage: React.FC = () => {
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Stats
   const charCount = content.length;
@@ -50,10 +70,11 @@ const EditorPage: React.FC = () => {
     const timeout = setTimeout(() => {
       localStorage.setItem(`${STORAGE_KEY}-title`, title);
       localStorage.setItem(`${STORAGE_KEY}-content`, content);
+      localStorage.setItem(`${STORAGE_KEY}-settings`, JSON.stringify(settings));
       setIsSaved(true);
     }, 800);
     return () => clearTimeout(timeout);
-  }, [title, content]);
+  }, [title, content, settings]);
 
   // Undo/Redo Logic
   useEffect(() => {
@@ -79,6 +100,27 @@ const EditorPage: React.FC = () => {
       return () => clearTimeout(timeout);
     }
   }, [content, history, historyIndex]);
+
+  // Fit Logic
+  useEffect(() => {
+    if (fitMode === 'none' || !previewContainerRef.current) return;
+
+    const container = previewContainerRef.current;
+    const containerWidth = container.clientWidth - 64; // Padding
+    const containerHeight = container.clientHeight - 64;
+
+    // Approximate A4 proportions if not loaded yet
+    const docWidth = settings.orientation === 'portrait' ? 595 : 842;
+    const docHeight = settings.orientation === 'portrait' ? 842 : 595;
+
+    if (fitMode === 'width') {
+      setZoom(containerWidth / docWidth);
+    } else if (fitMode === 'page') {
+      const scaleW = containerWidth / docWidth;
+      const scaleH = containerHeight / docHeight;
+      setZoom(Math.min(scaleW, scaleH));
+    }
+  }, [fitMode, settings.orientation, view]);
 
   const undo = useCallback(() => {
     if (historyIndex > 0) {
@@ -118,7 +160,6 @@ const EditorPage: React.FC = () => {
       }
     };
     reader.readAsText(file);
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -132,10 +173,15 @@ const EditorPage: React.FC = () => {
     document.body.removeChild(element);
   };
 
+  const handleZoom = (delta: number) => {
+    setFitMode('none');
+    setZoom(prev => Math.min(Math.max(0.2, prev + delta), 3));
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <div className={`h-screen flex flex-col overflow-hidden ${isPreviewDark && view === 'preview' ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Toolbar */}
-      <header className="bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between z-10 shadow-sm">
+      <header className="bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between z-10 shadow-sm flex-shrink-0">
         <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
           <Link to="/" className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 flex-shrink-0">
             <ArrowLeft className="w-5 h-5" />
@@ -162,10 +208,10 @@ const EditorPage: React.FC = () => {
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-1 mr-2 bg-gray-100 p-1 rounded-lg">
-            <button onClick={undo} disabled={historyIndex <= 0} className="p-1.5 rounded hover:bg-white hover:shadow-sm disabled:opacity-30 transition-all text-gray-600">
+            <button onClick={undo} disabled={historyIndex <= 0} className="p-1.5 rounded hover:bg-white hover:shadow-sm disabled:opacity-30 transition-all text-gray-600" title="Undo">
               <RotateCcw className="w-4 h-4" />
             </button>
-            <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-1.5 rounded hover:bg-white hover:shadow-sm disabled:opacity-30 transition-all text-gray-600">
+            <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-1.5 rounded hover:bg-white hover:shadow-sm disabled:opacity-30 transition-all text-gray-600" title="Redo">
               <RotateCw className="w-4 h-4" />
             </button>
             <div className="w-px h-4 bg-gray-300 mx-1"></div>
@@ -177,13 +223,16 @@ const EditorPage: React.FC = () => {
             </button>
           </div>
 
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImport}
-            accept=".txt,.md"
-            className="hidden"
-          />
+          <input type="file" ref={fileInputRef} onChange={handleImport} accept=".txt,.md" className="hidden" />
+
+          {/* Settings Toggle */}
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+            title="Page Settings"
+          >
+            <SettingsIcon className="w-5 h-5" />
+          </button>
 
           {/* View Toggle */}
           <div className="flex bg-gray-100 p-1 rounded-lg mr-1 sm:mr-2">
@@ -210,7 +259,7 @@ const EditorPage: React.FC = () => {
           </div>
 
           <PDFDownloadLink
-            document={<PDFDocument title={title} content={content} />}
+            document={<PDFDocument title={title} content={content} settings={settings} />}
             fileName={`${title.replace(/\s+/g, '_') || 'document'}.pdf`}
             className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 sm:px-4 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
           >
@@ -254,7 +303,6 @@ const EditorPage: React.FC = () => {
             spellCheck="false"
           />
 
-          {/* Mobile Stats Bar */}
           <div className="md:hidden flex items-center justify-between px-6 py-2 bg-gray-50 border-t border-gray-100 text-[10px] font-medium text-gray-500">
              <div className="flex gap-3">
                 <span>{wordCount} words</span>
@@ -268,20 +316,72 @@ const EditorPage: React.FC = () => {
         </div>
 
         {/* Preview Side */}
-        <div className={`bg-gray-100 transition-all duration-300 overflow-hidden flex flex-col ${
-          view === 'edit' ? 'hidden' : 'flex-1'
-        }`}>
-          <div className="flex items-center justify-between px-6 py-2 bg-gray-100 border-b border-gray-200/50">
+        <div
+          ref={previewContainerRef}
+          className={`transition-all duration-300 overflow-hidden flex flex-col ${
+            view === 'edit' ? 'hidden' : 'flex-1'
+          } ${isPreviewDark ? 'bg-gray-800' : 'bg-gray-100'}`}
+        >
+          <div className={`flex items-center justify-between px-6 py-2 border-b ${isPreviewDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PDF Live Preview</span>
+             <div className="flex items-center gap-2">
+               <div className="flex items-center bg-black/5 rounded-lg p-0.5">
+                  <button onClick={() => handleZoom(-0.1)} className="p-1 hover:bg-white rounded transition-all text-gray-500" title="Zoom Out"><ZoomOut className="w-3 h-3" /></button>
+                  <button onClick={() => {setZoom(1); setFitMode('none');}} className="px-2 text-[10px] font-bold text-gray-500">
+                    {Math.round(zoom * 100)}%
+                  </button>
+                  <button onClick={() => handleZoom(0.1)} className="p-1 hover:bg-white rounded transition-all text-gray-500" title="Zoom In"><ZoomIn className="w-3 h-3" /></button>
+
+                  <div className="w-px h-3 bg-gray-300 mx-1"></div>
+
+                  <button
+                    onClick={() => setFitMode('width')}
+                    className={`p-1 rounded transition-all ${fitMode === 'width' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white'}`}
+                    title="Fit Width"
+                  >
+                    <Maximize className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setFitMode('page')}
+                    className={`p-1 rounded transition-all ${fitMode === 'page' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white'}`}
+                    title="Fit Page"
+                  >
+                    <Minimize className="w-3 h-3" />
+                  </button>
+               </div>
+               <button
+                onClick={() => setIsPreviewDark(!isPreviewDark)}
+                className={`p-1.5 rounded-lg transition-colors ${isPreviewDark ? 'bg-yellow-400 text-gray-900' : 'bg-gray-200 text-gray-600'}`}
+                title="Toggle Theme"
+               >
+                {isPreviewDark ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+               </button>
+             </div>
           </div>
-          <div className="flex-1 p-4 md:p-8">
-            <div className="h-full w-full bg-white shadow-2xl rounded-sm overflow-hidden">
+          <div className="flex-1 overflow-auto p-4 md:p-8 custom-scrollbar flex justify-center">
+            <div
+              className="bg-white shadow-2xl rounded-sm transition-transform duration-200 origin-top flex-shrink-0"
+              style={{
+                transform: `scale(${zoom})`,
+                width: settings.orientation === 'portrait' ? '595px' : '842px',
+                height: settings.orientation === 'portrait' ? '842px' : '595px',
+                marginBottom: (zoom > 1 ? (842 * (zoom - 1) + 40) : 40) + 'px'
+              }}
+            >
               <PDFViewer className="w-full h-full border-none" showToolbar={false}>
-                <PDFDocument title={title} content={content} />
+                <PDFDocument title={title} content={content} settings={settings} />
               </PDFViewer>
             </div>
           </div>
         </div>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <SettingsPanel
+            settings={settings}
+            onChange={setSettings}
+          />
+        )}
       </main>
     </div>
   );
