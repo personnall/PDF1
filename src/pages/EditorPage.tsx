@@ -4,13 +4,14 @@ import {
   Info, Settings as SettingsIcon, ZoomIn, ZoomOut, Maximize, Moon, Sun,
   Minimize, Type, Layout, Search, Image as ImageIcon, Table, Scissors, FolderOpen, FileUp, FileDown
 } from 'lucide-react';
-import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
+import { PDFDownloadLink } from '@react-pdf/renderer';
 import { PDFDocument } from '../components/PDFDocument';
 import SettingsPanel from '../components/SettingsPanel';
 import StylingPanel from '../components/StylingPanel';
 import HeaderFooterPanel from '../components/HeaderFooterPanel';
 import ProjectSidebar from '../components/ProjectSidebar';
 import FindReplace from '../components/FindReplace';
+import StablePreview from '../components/StablePreview';
 import { useProjectManager } from '../hooks/useProjectManager';
 import type { PageSettings } from '../types/settings';
 import type { TextStyling } from '../types/styling';
@@ -38,7 +39,7 @@ const EditorPage: React.FC = () => {
   const [isPreviewDark, setIsPreviewDark] = useState(false);
   const [fitMode, setFitMode] = useState<'none' | 'width' | 'page'>('none');
 
-  // Preview Debounce (Prevents blinking/iframe reload on every keystroke)
+  // Preview Debounce (Increased to 2.5s for stability)
   const [previewData, setPreviewData] = useState<{
     content: string;
     title: string;
@@ -50,7 +51,7 @@ const EditorPage: React.FC = () => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       setPreviewData({ content, title, settings, styling, hfSettings });
-    }, 1500); // 1.5s delay for preview refresh
+    }, 2500);
     return () => clearTimeout(timeout);
   }, [content, title, settings, styling, hfSettings]);
 
@@ -68,65 +69,48 @@ const EditorPage: React.FC = () => {
   const charCount = useMemo(() => content.length, [content]);
   const wordCount = useMemo(() => content.trim() === '' ? 0 : content.trim().split(/\s+/).length, [content]);
 
-  // Load last project or create new one on mount
+  // Load last project
   useEffect(() => {
     if (!currentProject) {
       if (projects.length > 0) {
         const last = loadProject(projects[0].id);
-        if (last) {
-           setTitle(last.title);
-           setContent(last.content);
-           setSettings(last.settings);
-           setStyling(last.styling);
-           setHfSettings(last.hf);
-        }
+        if (last) { syncState(last); }
       } else {
         const fresh = createProject();
-        setTitle(fresh.title);
-        setContent(fresh.content);
-        setSettings(fresh.settings);
-        setStyling(fresh.styling);
-        setHfSettings(fresh.hf);
+        syncState(fresh);
       }
     }
   }, [projects, currentProject, loadProject, createProject]);
 
+  const syncState = (project: Project) => {
+    setTitle(project.title);
+    setContent(project.content);
+    setSettings(project.settings);
+    setStyling(project.styling);
+    setHfSettings(project.hf);
+    setPreviewData({
+        content: project.content,
+        title: project.title,
+        settings: project.settings,
+        styling: project.styling,
+        hfSettings: project.hf
+    });
+  };
+
   // Auto-save logic
   useEffect(() => {
     if (!currentProject || !settings || !styling || !hfSettings) return;
-
     setIsSaved(false);
     const timeout = setTimeout(() => {
-      const projectToSave: Project = {
-        ...currentProject,
-        title,
-        content,
-        settings,
-        styling,
-        hf: hfSettings,
-        updatedAt: Date.now()
-      };
-      saveProject(projectToSave);
+      saveProject({ ...currentProject, title, content, settings, styling, hf: hfSettings, updatedAt: Date.now() });
       setIsSaved(true);
     }, 1000);
-
-    const interval = setInterval(() => {
-       const p = { ...currentProject, title, content, settings, styling, hf: hfSettings, updatedAt: Date.now() };
-       saveProject(p);
-    }, 30000);
-
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(interval);
-    };
+    return () => clearTimeout(timeout);
   }, [title, content, settings, styling, hfSettings, currentProject, saveProject]);
 
   // Undo/Redo Logic
   useEffect(() => {
-    if (isInternalChange.current) {
-      isInternalChange.current = false;
-      return;
-    }
+    if (isInternalChange.current) { isInternalChange.current = false; return; }
     const lastEntry = history[historyIndex];
     if (content !== lastEntry) {
       const timeout = setTimeout(() => {
@@ -150,7 +134,6 @@ const EditorPage: React.FC = () => {
     const containerHeight = container.clientHeight - 64;
     const docWidth = settings.orientation === 'portrait' ? 595 : 842;
     const docHeight = settings.orientation === 'portrait' ? 842 : 595;
-
     if (fitMode === 'width') setZoom(containerWidth / docWidth);
     else if (fitMode === 'page') setZoom(Math.min(containerWidth / docWidth, containerHeight / docHeight));
   }, [fitMode, settings?.orientation, settings]);
@@ -205,20 +188,6 @@ const EditorPage: React.FC = () => {
     if (imageInputRef.current) imageInputRef.current.value = '';
   };
 
-  const handleInsertTable = () => {
-    setContent(prev => prev + `\n| Header 1 | Header 2 |\n| Cell 1 | Cell 2 |`);
-  };
-
-  const handlePageBreak = () => {
-    setContent(prev => prev + `\n[page-break]\n`);
-  };
-
-  const handleInsertTOC = () => {
-    if (!content.includes('[toc]')) {
-      setContent(prev => `[toc]\n\n` + prev);
-    }
-  };
-
   if (!settings || !styling || !hfSettings) return null;
 
   return (
@@ -251,9 +220,9 @@ const EditorPage: React.FC = () => {
           <div className="hidden lg:flex items-center gap-1 mr-2 bg-gray-100 p-1 rounded-lg">
             <button onClick={() => setIsFindReplaceOpen(!isFindReplaceOpen)} className="p-1.5 rounded hover:bg-white text-gray-600" title="Find & Replace"><Search className="w-4 h-4" /></button>
             <button onClick={() => imageInputRef.current?.click()} className="p-1.5 rounded hover:bg-white text-gray-600" title="Insert Image"><ImageIcon className="w-4 h-4" /></button>
-            <button onClick={handleInsertTable} className="p-1.5 rounded hover:bg-white text-gray-600" title="Insert Table"><Table className="w-4 h-4" /></button>
-            <button onClick={handlePageBreak} className="p-1.5 rounded hover:bg-white text-gray-600" title="Page Break"><Scissors className="w-4 h-4" /></button>
-            <button onClick={handleInsertTOC} className="p-1.5 rounded hover:bg-white text-gray-600" title="Table of Contents"><FileText className="w-4 h-4" /></button>
+            <button onClick={() => setContent(p => p + `\n| Header 1 | Header 2 |\n| Cell 1 | Cell 2 |`)} className="p-1.5 rounded hover:bg-white text-gray-600" title="Insert Table"><Table className="w-4 h-4" /></button>
+            <button onClick={() => setContent(p => p + `\n[page-break]\n`)} className="p-1.5 rounded hover:bg-white text-gray-600" title="Page Break"><Scissors className="w-4 h-4" /></button>
+            <button onClick={() => !content.includes('[toc]') && setContent(p => `[toc]\n\n` + p)} className="p-1.5 rounded hover:bg-white text-gray-600" title="Table of Contents"><FileText className="w-4 h-4" /></button>
             <div className="w-px h-4 bg-gray-300 mx-1"></div>
             <button onClick={() => fileInputRef.current?.click()} className="p-1.5 rounded hover:bg-white text-gray-600" title="Import Text File"><FileUp className="w-4 h-4" /></button>
             <button onClick={handleExportText} className="p-1.5 rounded hover:bg-white text-gray-600" title="Export as Text"><FileDown className="w-4 h-4" /></button>
@@ -288,8 +257,8 @@ const EditorPage: React.FC = () => {
           <ProjectSidebar
             projects={projects}
             currentProjectId={currentProject?.id}
-            onSelect={(id) => { const p = loadProject(id); if (p) { setContent(p.content); setTitle(p.title); setSettings(p.settings); setStyling(p.styling); setHfSettings(p.hf); } }}
-            onCreate={() => { const p = createProject(); setContent(p.content); setTitle(p.title); setSettings(p.settings); setStyling(p.styling); setHfSettings(p.hf); }}
+            onSelect={(id) => { const p = loadProject(id); if (p) syncState(p); }}
+            onCreate={() => { const p = createProject(); syncState(p); }}
             onDelete={deleteProject}
             onDuplicate={duplicateProject}
             onRename={renameProject}
@@ -334,24 +303,19 @@ const EditorPage: React.FC = () => {
                 <button onClick={() => setIsPreviewDark(!isPreviewDark)} className={`p-1.5 rounded-lg ${isPreviewDark ? 'bg-yellow-400' : 'bg-gray-200'}`}>{isPreviewDark ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}</button>
              </div>
           </div>
-          <div className="flex-1 overflow-auto p-8 custom-scrollbar flex justify-center">
-             <div className="bg-white shadow-2xl origin-top flex-shrink-0" style={{ transform: `scale(${zoom})`, width: settings.orientation === 'portrait' ? '595px' : '842px', height: 'fit-content' }}>
-                {previewData.settings && previewData.styling && previewData.hfSettings ? (
-                  <PDFViewer className="w-full h-[842px] border-none" showToolbar={false}>
-                    <PDFDocument
-                      title={previewData.title}
-                      content={previewData.content}
-                      settings={previewData.settings}
-                      styling={previewData.styling}
-                      hf={previewData.hfSettings}
-                    />
-                  </PDFViewer>
-                ) : (
-                  <div className="w-full h-[842px] flex items-center justify-center text-gray-400 animate-pulse">
-                    Generating preview...
-                  </div>
-                )}
-             </div>
+          <div className="flex-1 overflow-auto custom-scrollbar">
+             {previewData.settings && previewData.styling && previewData.hfSettings ? (
+                <StablePreview
+                  title={previewData.title}
+                  content={previewData.content}
+                  settings={previewData.settings}
+                  styling={previewData.styling}
+                  hf={previewData.hfSettings}
+                  zoom={zoom}
+                />
+             ) : (
+               <div className="h-full flex items-center justify-center text-gray-400 animate-pulse">Initializing Preview...</div>
+             )}
           </div>
         </div>
 
