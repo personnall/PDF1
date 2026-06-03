@@ -38,6 +38,22 @@ const EditorPage: React.FC = () => {
   const [isPreviewDark, setIsPreviewDark] = useState(false);
   const [fitMode, setFitMode] = useState<'none' | 'width' | 'page'>('none');
 
+  // Preview Debounce (Prevents blinking/iframe reload on every keystroke)
+  const [previewData, setPreviewData] = useState<{
+    content: string;
+    title: string;
+    settings: PageSettings | null;
+    styling: TextStyling | null;
+    hfSettings: HeaderFooterSettings | null;
+  }>({ content: '', title: '', settings: null, styling: null, hfSettings: null });
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPreviewData({ content, title, settings, styling, hfSettings });
+    }, 1500); // 1.5s delay for preview refresh
+    return () => clearTimeout(timeout);
+  }, [content, title, settings, styling, hfSettings]);
+
   // Undo/Redo State
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -320,9 +336,21 @@ const EditorPage: React.FC = () => {
           </div>
           <div className="flex-1 overflow-auto p-8 custom-scrollbar flex justify-center">
              <div className="bg-white shadow-2xl origin-top flex-shrink-0" style={{ transform: `scale(${zoom})`, width: settings.orientation === 'portrait' ? '595px' : '842px', height: 'fit-content' }}>
-                <PDFViewer className="w-full h-[842px] border-none" showToolbar={false}>
-                  <PDFDocument title={title} content={content} settings={settings} styling={styling} hf={hfSettings} />
-                </PDFViewer>
+                {previewData.settings && previewData.styling && previewData.hfSettings ? (
+                  <PDFViewer className="w-full h-[842px] border-none" showToolbar={false}>
+                    <PDFDocument
+                      title={previewData.title}
+                      content={previewData.content}
+                      settings={previewData.settings}
+                      styling={previewData.styling}
+                      hf={previewData.hfSettings}
+                    />
+                  </PDFViewer>
+                ) : (
+                  <div className="w-full h-[842px] flex items-center justify-center text-gray-400 animate-pulse">
+                    Generating preview...
+                  </div>
+                )}
              </div>
           </div>
         </div>
