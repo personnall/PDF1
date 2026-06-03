@@ -19,15 +19,23 @@ import {
   Maximize,
   Moon,
   Sun,
-  Minimize
+  Minimize,
+  Type,
+  Layout
 } from 'lucide-react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import { PDFDocument } from '../components/PDFDocument';
 import SettingsPanel from '../components/SettingsPanel';
+import StylingPanel from '../components/StylingPanel';
+import HeaderFooterPanel from '../components/HeaderFooterPanel';
 import type { PageSettings } from '../types/settings';
 import { DEFAULT_SETTINGS } from '../types/settings';
+import type { TextStyling } from '../types/styling';
+import { DEFAULT_STYLING } from '../types/styling';
+import type { HeaderFooterSettings } from '../types/headerFooter';
+import { DEFAULT_HF_SETTINGS } from '../types/headerFooter';
 
-const STORAGE_KEY = 'pdf-builder';
+const STORAGE_KEY = 'pdf-builder-v2';
 
 const EditorPage: React.FC = () => {
   // State
@@ -43,9 +51,17 @@ const EditorPage: React.FC = () => {
     const saved = localStorage.getItem(`${STORAGE_KEY}-settings`);
     return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
   });
+  const [styling, setStyling] = useState<TextStyling>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}-styling`);
+    return saved ? JSON.parse(saved) : DEFAULT_STYLING;
+  });
+  const [hfSettings, setHfSettings] = useState<HeaderFooterSettings>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}-hf`);
+    return saved ? JSON.parse(saved) : DEFAULT_HF_SETTINGS;
+  });
 
   const [view, setView] = useState<'split' | 'edit' | 'preview'>('split');
-  const [showSettings, setShowSettings] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'page' | 'style' | 'hf' | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [isPreviewDark, setIsPreviewDark] = useState(false);
@@ -71,10 +87,12 @@ const EditorPage: React.FC = () => {
       localStorage.setItem(`${STORAGE_KEY}-title`, title);
       localStorage.setItem(`${STORAGE_KEY}-content`, content);
       localStorage.setItem(`${STORAGE_KEY}-settings`, JSON.stringify(settings));
+      localStorage.setItem(`${STORAGE_KEY}-styling`, JSON.stringify(styling));
+      localStorage.setItem(`${STORAGE_KEY}-hf`, JSON.stringify(hfSettings));
       setIsSaved(true);
     }, 800);
     return () => clearTimeout(timeout);
-  }, [title, content, settings]);
+  }, [title, content, settings, styling, hfSettings]);
 
   // Undo/Redo Logic
   useEffect(() => {
@@ -106,10 +124,9 @@ const EditorPage: React.FC = () => {
     if (fitMode === 'none' || !previewContainerRef.current) return;
 
     const container = previewContainerRef.current;
-    const containerWidth = container.clientWidth - 64; // Padding
+    const containerWidth = container.clientWidth - 64;
     const containerHeight = container.clientHeight - 64;
 
-    // Approximate A4 proportions if not loaded yet
     const docWidth = settings.orientation === 'portrait' ? 595 : 842;
     const docHeight = settings.orientation === 'portrait' ? 842 : 595;
 
@@ -178,6 +195,10 @@ const EditorPage: React.FC = () => {
     setZoom(prev => Math.min(Math.max(0.2, prev + delta), 3));
   };
 
+  const toggleTab = (tab: 'page' | 'style' | 'hf') => {
+    setSidebarTab(sidebarTab === tab ? null : tab);
+  };
+
   return (
     <div className={`h-screen flex flex-col overflow-hidden ${isPreviewDark && view === 'preview' ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Toolbar */}
@@ -207,7 +228,7 @@ const EditorPage: React.FC = () => {
 
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Action Buttons */}
-          <div className="hidden md:flex items-center gap-1 mr-2 bg-gray-100 p-1 rounded-lg">
+          <div className="hidden lg:flex items-center gap-1 mr-2 bg-gray-100 p-1 rounded-lg">
             <button onClick={undo} disabled={historyIndex <= 0} className="p-1.5 rounded hover:bg-white hover:shadow-sm disabled:opacity-30 transition-all text-gray-600" title="Undo">
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -225,41 +246,30 @@ const EditorPage: React.FC = () => {
 
           <input type="file" ref={fileInputRef} onChange={handleImport} accept=".txt,.md" className="hidden" />
 
-          {/* Settings Toggle */}
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-            title="Page Settings"
-          >
-            <SettingsIcon className="w-5 h-5" />
-          </button>
+          {/* Settings Toggles */}
+          <div className="flex bg-gray-100 p-1 rounded-lg mr-1 sm:mr-2">
+             <button onClick={() => toggleTab('page')} className={`p-1.5 rounded-md transition-all ${sidebarTab === 'page' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} title="Page Configuration"><SettingsIcon className="w-4 h-4" /></button>
+             <button onClick={() => toggleTab('style')} className={`p-1.5 rounded-md transition-all ${sidebarTab === 'style' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} title="Text Styling"><Type className="w-4 h-4" /></button>
+             <button onClick={() => toggleTab('hf')} className={`p-1.5 rounded-md transition-all ${sidebarTab === 'hf' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} title="Header & Footer"><Layout className="w-4 h-4" /></button>
+          </div>
 
           {/* View Toggle */}
           <div className="flex bg-gray-100 p-1 rounded-lg mr-1 sm:mr-2">
-            <button
-              onClick={() => setView('edit')}
-              className={`p-1.5 sm:px-3 sm:py-1 rounded-md text-xs font-medium transition-all ${view === 'edit' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
+            <button onClick={() => setView('edit')} className={`p-1.5 sm:px-3 sm:py-1 rounded-md text-xs font-medium transition-all ${view === 'edit' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
               <Edit3 className="w-4 h-4 sm:hidden" />
               <span className="hidden sm:inline">Edit</span>
             </button>
-            <button
-              onClick={() => setView('split')}
-              className={`hidden sm:block px-3 py-1 text-xs font-medium rounded-md transition-all ${view === 'split' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
+            <button onClick={() => setView('split')} className={`hidden sm:block px-3 py-1 text-xs font-medium rounded-md transition-all ${view === 'split' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
               Split
             </button>
-            <button
-              onClick={() => setView('preview')}
-              className={`p-1.5 sm:px-3 sm:py-1 rounded-md text-xs font-medium transition-all ${view === 'preview' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
+            <button onClick={() => setView('preview')} className={`p-1.5 sm:px-3 sm:py-1 rounded-md text-xs font-medium transition-all ${view === 'preview' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
               <Eye className="w-4 h-4 sm:hidden" />
               <span className="hidden sm:inline">Preview</span>
             </button>
           </div>
 
           <PDFDownloadLink
-            document={<PDFDocument title={title} content={content} settings={settings} />}
+            document={<PDFDocument title={title} content={content} settings={settings} styling={styling} hf={hfSettings} />}
             fileName={`${title.replace(/\s+/g, '_') || 'document'}.pdf`}
             className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 sm:px-4 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
           >
@@ -287,11 +297,7 @@ const EditorPage: React.FC = () => {
                 <span>{charCount} characters</span>
               </div>
             </div>
-            <button
-              onClick={handleClear}
-              className="text-gray-400 hover:text-red-500 transition-colors p-1"
-              title="Clear all"
-            >
+            <button onClick={handleClear} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Clear all">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -327,33 +333,13 @@ const EditorPage: React.FC = () => {
              <div className="flex items-center gap-2">
                <div className="flex items-center bg-black/5 rounded-lg p-0.5">
                   <button onClick={() => handleZoom(-0.1)} className="p-1 hover:bg-white rounded transition-all text-gray-500" title="Zoom Out"><ZoomOut className="w-3 h-3" /></button>
-                  <button onClick={() => {setZoom(1); setFitMode('none');}} className="px-2 text-[10px] font-bold text-gray-500">
-                    {Math.round(zoom * 100)}%
-                  </button>
+                  <button onClick={() => {setZoom(1); setFitMode('none');}} className="px-2 text-[10px] font-bold text-gray-500">{Math.round(zoom * 100)}%</button>
                   <button onClick={() => handleZoom(0.1)} className="p-1 hover:bg-white rounded transition-all text-gray-500" title="Zoom In"><ZoomIn className="w-3 h-3" /></button>
-
                   <div className="w-px h-3 bg-gray-300 mx-1"></div>
-
-                  <button
-                    onClick={() => setFitMode('width')}
-                    className={`p-1 rounded transition-all ${fitMode === 'width' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white'}`}
-                    title="Fit Width"
-                  >
-                    <Maximize className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => setFitMode('page')}
-                    className={`p-1 rounded transition-all ${fitMode === 'page' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white'}`}
-                    title="Fit Page"
-                  >
-                    <Minimize className="w-3 h-3" />
-                  </button>
+                  <button onClick={() => setFitMode('width')} className={`p-1 rounded transition-all ${fitMode === 'width' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white'}`} title="Fit Width"><Maximize className="w-3 h-3" /></button>
+                  <button onClick={() => setFitMode('page')} className={`p-1 rounded transition-all ${fitMode === 'page' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white'}`} title="Fit Page"><Minimize className="w-3 h-3" /></button>
                </div>
-               <button
-                onClick={() => setIsPreviewDark(!isPreviewDark)}
-                className={`p-1.5 rounded-lg transition-colors ${isPreviewDark ? 'bg-yellow-400 text-gray-900' : 'bg-gray-200 text-gray-600'}`}
-                title="Toggle Theme"
-               >
+               <button onClick={() => setIsPreviewDark(!isPreviewDark)} className={`p-1.5 rounded-lg transition-colors ${isPreviewDark ? 'bg-yellow-400 text-gray-900' : 'bg-gray-200 text-gray-600'}`} title="Toggle Theme">
                 {isPreviewDark ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
                </button>
              </div>
@@ -369,18 +355,19 @@ const EditorPage: React.FC = () => {
               }}
             >
               <PDFViewer className="w-full h-full border-none" showToolbar={false}>
-                <PDFDocument title={title} content={content} settings={settings} />
+                <PDFDocument title={title} content={content} settings={settings} styling={styling} hf={hfSettings} />
               </PDFViewer>
             </div>
           </div>
         </div>
 
-        {/* Settings Panel */}
-        {showSettings && (
-          <SettingsPanel
-            settings={settings}
-            onChange={setSettings}
-          />
+        {/* Sidebar Panel */}
+        {sidebarTab && (
+          <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto p-6 flex-shrink-0 animate-in slide-in-from-right duration-200">
+            {sidebarTab === 'page' && <SettingsPanel settings={settings} onChange={setSettings} />}
+            {sidebarTab === 'style' && <StylingPanel styling={styling} onChange={setStyling} />}
+            {sidebarTab === 'hf' && <HeaderFooterPanel settings={hfSettings} onChange={setHfSettings} />}
+          </div>
         )}
       </main>
     </div>
