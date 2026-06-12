@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   FileText, Download, CheckCircle2, Trash2, RotateCcw, RotateCw,
   Info, Settings as SettingsIcon, ZoomIn, ZoomOut, Maximize, Moon, Sun,
-  Minimize, Type, Layout, Search, Image as ImageIcon, Table, Scissors, FolderOpen, FileUp, FileDown
+  Minimize, Type, Layout, Search, Image as ImageIcon, Table, Scissors, FolderOpen, FileUp, FileDown,
+  Wrench, Home, HelpCircle
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { PDFDocument } from '../components/PDFDocument';
 import SettingsPanel from '../components/SettingsPanel';
@@ -11,6 +13,7 @@ import StylingPanel from '../components/StylingPanel';
 import HeaderFooterPanel from '../components/HeaderFooterPanel';
 import ProjectSidebar from '../components/ProjectSidebar';
 import FindReplace from '../components/FindReplace';
+import HelpPanel from '../components/HelpPanel';
 import StablePreview from '../components/StablePreview';
 import { useProjectManager } from '../hooks/useProjectManager';
 import type { PageSettings } from '../types/settings';
@@ -34,6 +37,7 @@ const EditorPage: React.FC = () => {
   const [sidebarTab, setSidebarTab] = useState<'page' | 'style' | 'hf' | null>(null);
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [isPreviewDark, setIsPreviewDark] = useState(false);
@@ -51,7 +55,7 @@ const EditorPage: React.FC = () => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       setPreviewData({ content, title, settings, styling, hfSettings });
-    }, 2500);
+    }, 1500);
     return () => clearTimeout(timeout);
   }, [content, title, settings, styling, hfSettings]);
 
@@ -194,9 +198,15 @@ const EditorPage: React.FC = () => {
     <div className={`h-screen flex flex-col overflow-hidden ${isPreviewDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <header className="bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between z-10 shadow-sm flex-shrink-0">
         <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+          <Link to="/" className="p-2 hover:bg-gray-100 rounded-lg text-gray-500" title="Go to Home">
+            <Home className="w-5 h-5" />
+          </Link>
           <button onClick={() => setIsProjectsOpen(!isProjectsOpen)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500" title="Projects">
             <FolderOpen className="w-5 h-5" />
           </button>
+          <Link to="/tools" className="p-2 hover:bg-gray-100 rounded-lg text-gray-500" title="PDF Tools">
+            <Wrench className="w-5 h-5" />
+          </Link>
           <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
           <div className="flex items-center gap-2 overflow-hidden">
             <FileText className="text-blue-600 w-5 h-5 flex-shrink-0" />
@@ -226,6 +236,8 @@ const EditorPage: React.FC = () => {
             <div className="w-px h-4 bg-gray-300 mx-1"></div>
             <button onClick={() => fileInputRef.current?.click()} className="p-1.5 rounded hover:bg-white text-gray-600" title="Import Text File"><FileUp className="w-4 h-4" /></button>
             <button onClick={handleExportText} className="p-1.5 rounded hover:bg-white text-gray-600" title="Export as Text"><FileDown className="w-4 h-4" /></button>
+            <div className="w-px h-4 bg-gray-300 mx-1"></div>
+            <button onClick={() => setIsHelpOpen(!isHelpOpen)} className={`p-1.5 rounded transition-colors ${isHelpOpen ? 'bg-blue-600 text-white' : 'hover:bg-white text-gray-600'}`} title="Help Guide"><HelpCircle className="w-4 h-4" /></button>
           </div>
 
           <input type="file" ref={imageInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
@@ -267,6 +279,7 @@ const EditorPage: React.FC = () => {
         )}
 
         {isFindReplaceOpen && <FindReplace content={content} onReplace={setContent} onClose={() => setIsFindReplaceOpen(false)} />}
+        {isHelpOpen && <HelpPanel onClose={() => setIsHelpOpen(false)} />}
 
         <div className="flex-1 flex flex-col bg-white border-r border-gray-200 transition-all flex">
           <div className="flex items-center justify-between px-6 py-2 bg-gray-50/50 border-b border-gray-100 text-[10px] text-gray-400 font-bold uppercase tracking-widest">

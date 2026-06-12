@@ -8,17 +8,22 @@ const HomePage: React.FC = () => {
       {/* Navigation */}
       <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-2 rounded-lg">
+          <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-200">
             <FileText className="text-white w-6 h-6" />
           </div>
           <span className="text-xl font-bold tracking-tight">PDF Builder</span>
         </div>
-        <Link
-          to="/editor"
-          className="bg-blue-600 text-white px-5 py-2 rounded-full font-medium hover:bg-blue-700 transition-colors"
-        >
-          Open Editor
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link to="/tools" className="text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors">
+            Tools
+          </Link>
+          <Link
+            to="/editor"
+            className="bg-blue-600 text-white px-5 py-2 rounded-full font-medium hover:bg-blue-700 transition-colors"
+          >
+            Open Editor
+          </Link>
+        </div>
       </nav>
 
       {/* Hero Section */}
@@ -71,15 +76,23 @@ const HomePage: React.FC = () => {
 
       {/* CTA Section */}
       <section className="py-24 px-6 text-center">
-        <div className="max-w-3xl mx-auto bg-blue-600 rounded-3xl p-12 text-white">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to create your first document?</h2>
+        <div className="max-w-4xl mx-auto bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-12 md:p-20 text-white shadow-2xl shadow-blue-200">
+          <h2 className="text-3xl md:text-5xl font-bold mb-8">Professional results, <br />zero complexity.</h2>
           <p className="text-blue-100 mb-10 text-lg">Join thousands of users creating professional documents with PDF Builder.</p>
-          <Link
-            to="/editor"
-            className="bg-white text-blue-600 px-8 py-4 rounded-full text-lg font-bold hover:bg-gray-100 transition-colors"
-          >
-            Go to Editor
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              to="/editor"
+              className="w-full sm:w-auto bg-white text-blue-600 px-10 py-5 rounded-full text-lg font-bold hover:shadow-xl hover:-translate-y-1 transition-all"
+            >
+              Start Building
+            </Link>
+            <Link
+              to="/tools"
+              className="w-full sm:w-auto bg-blue-500/20 text-white border border-white/30 backdrop-blur-md px-10 py-5 rounded-full text-lg font-bold hover:bg-white/10 transition-all"
+            >
+              Explore Tools
+            </Link>
+          </div>
         </div>
       </section>
 
